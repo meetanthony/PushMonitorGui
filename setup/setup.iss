@@ -33,7 +33,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "..\PushMonitorGui\bin\Release\net10.0-windows\*.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\PushMonitorGui\bin\Release\net10.0-windows\*.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\PushMonitorGui\bin\Release\net10.0-windows\*.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\PushMonitorGui\bin\Release\net10.0-windows\PushMonitorGui.deps.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\PushMonitorGui\bin\Release\net10.0-windows\PushMonitorGui.runtimeconfig.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\PushMonitorGui\bin\Release\net10.0-windows\icons\*.ico"; DestDir: "{app}\icons"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
