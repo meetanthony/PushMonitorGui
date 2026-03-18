@@ -12,7 +12,7 @@ using System.Windows.Forms;
 public class Settings
 {
     public string[] Folders { get; set; } = [@"C:\repostore", @"D:\repostore"];
-    public int UpdatePeriodSeconds { get; set; } = 5;
+    public int UpdatePeriodSeconds { get; set; } = 120;
 }
 
 public class TrayApp : ApplicationContext
