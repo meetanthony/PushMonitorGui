@@ -7,7 +7,7 @@ internal static class Program
     private static void Main()
     {
         var app = new TrayApp();
-        app.Init();
-        Application.Run(app);
+        if (app.Init())
+            Application.Run(app);
     }
 }

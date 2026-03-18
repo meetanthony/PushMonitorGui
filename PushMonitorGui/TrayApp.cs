@@ -38,7 +38,7 @@ public class TrayApp : ApplicationContext
         Process.Start("explorer.exe", $"/select,\"{SettingsFileName}\"");
     }
 
-    public void Init()
+    public bool Init()
     {
         string json;
         Settings? settings;
@@ -54,12 +54,13 @@ public class TrayApp : ApplicationContext
                         $"Please set your own settings and restart the program.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
                     LocateConfig();
-                    return;
+                    return false;
                 }
                 catch (Exception e)
                 {
                     MessageBox.Show(e.ToString(), "Error writing the default settings file.", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
+                    LocateConfig();
+                    return false;
                 }
             }
             json = File.ReadAllText(SettingsFileName);
@@ -70,7 +71,9 @@ public class TrayApp : ApplicationContext
         catch (Exception e)
         {
             MessageBox.Show(e.ToString(), "Error reading the settings file.", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            return;
+
+            LocateConfig();
+            return false;
         }
 
         _folders = settings.Folders;
@@ -87,6 +90,8 @@ public class TrayApp : ApplicationContext
 
         Task.Factory.StartNew(RefreshLoop);
         Refresh();
+
+        return true;
     }
 
     private void Refresh()
