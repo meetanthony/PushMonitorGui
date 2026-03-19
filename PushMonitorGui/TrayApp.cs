@@ -81,10 +81,18 @@ public class TrayApp : ApplicationContext
 
         var folders = string.Join(Environment.NewLine, _folders);
 
-        _trayIcon.Text = $"PushMonitor{Environment.NewLine}" +
+        var trayText = $"PushMonitor{Environment.NewLine}" +
             $"Update interval : {_updateIntervalSeconds} seconds{Environment.NewLine}" +
             $"Scan folders:{Environment.NewLine}" +
             folders;
+
+        const int trayTextMaxLength = 120;
+
+        trayText = trayText.Length > trayTextMaxLength
+            ? trayText.Substring(0, trayTextMaxLength - 3) + "..."
+            : trayText;
+
+        _trayIcon.Text = trayText;
 
         UpdateMenu(new List<RepoStatus>());
 
