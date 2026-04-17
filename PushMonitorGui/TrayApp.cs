@@ -9,249 +9,251 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-public class Settings
+namespace PushMonitorGui
 {
-    public string[] Folders { get; set; } = [@"C:\repostore", @"D:\repostore"];
-    public int UpdatePeriodSeconds { get; set; } = 120;
-}
-
-public class TrayApp : ApplicationContext
-{
-    private readonly NotifyIcon _trayIcon;
-    private DateTime _lastRefresh = DateTime.MinValue;
-
-    private string[] _folders = [];
-    private const string SettingsFileName = "settings.json";
-
-    public TrayApp()
+    public class Settings
     {
-        _trayIcon = new NotifyIcon
-        {
-            Visible = true,
-            Text = "PushMonitor",
-            Icon = _scanIcon
-        };
+        public string[] Folders { get; set; } = { @"C:\repostore", @"D:\repostore" };
+        public int UpdatePeriodSeconds { get; set; } = 120;
     }
 
-    private void LocateConfig()
+    public class TrayApp : ApplicationContext
     {
-        Process.Start("explorer.exe", $"/select,\"{SettingsFileName}\"");
-    }
+        private readonly NotifyIcon _trayIcon;
+        private DateTime _lastRefresh = DateTime.MinValue;
 
-    public bool Init()
-    {
-        string json;
-        Settings? settings;
-        try
+        private string[] _folders = Array.Empty<string>();
+        private const string SettingsFileName = "settings.json";
+
+        public TrayApp()
         {
-            if (File.Exists(SettingsFileName) == false)
+            _trayIcon = new NotifyIcon
             {
-                var defaultSettingsJson = JsonSerializer.Serialize(new Settings());
-                try
-                {
-                    File.WriteAllLines(SettingsFileName, [defaultSettingsJson]);
-                    MessageBox.Show($"The settings file was not found. A default settings file has been created.{Environment.NewLine}" +
-                        $"Please set your own settings and restart the program.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Visible = true,
+                Text = "PushMonitor",
+                Icon = _scanIcon
+            };
+        }
 
-                    LocateConfig();
-                    return false;
-                }
-                catch (Exception e)
+        private void LocateConfig()
+        {
+            Process.Start("explorer.exe", $"/select,\"{SettingsFileName}\"");
+        }
+
+        public bool Init()
+        {
+            Settings? settings;
+            try
+            {
+                if (File.Exists(SettingsFileName) == false)
                 {
-                    MessageBox.Show(e.ToString(), "Error writing the default settings file.", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    LocateConfig();
-                    return false;
+                    var defaultSettingsJson = JsonSerializer.Serialize(new Settings());
+                    try
+                    {
+                        File.WriteAllLines(SettingsFileName, new[] { defaultSettingsJson });
+                        MessageBox.Show($"The settings file was not found. A default settings file has been created.{Environment.NewLine}" +
+                                        $"Please set your own settings and restart the program.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+                        LocateConfig();
+                        return false;
+                    }
+                    catch (Exception e)
+                    {
+                        MessageBox.Show(e.ToString(), "Error writing the default settings file.", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        LocateConfig();
+                        return false;
+                    }
                 }
+                var json = File.ReadAllText(SettingsFileName);
+                settings = JsonSerializer.Deserialize<Settings>(json);
+                if (settings == null)
+                    throw new Exception("Error deserializing the settings file.");
             }
-            json = File.ReadAllText(SettingsFileName);
-            settings = JsonSerializer.Deserialize<Settings>(json);
-            if (settings == null)
-                throw new Exception("Error deserializing the settings file.");
-        }
-        catch (Exception e)
-        {
-            MessageBox.Show(e.ToString(), "Error reading the settings file.", MessageBoxButtons.OK, MessageBoxIcon.Error);
-
-            LocateConfig();
-            return false;
-        }
-
-        _folders = settings.Folders;
-        _updateIntervalSeconds = settings.UpdatePeriodSeconds;
-
-        var folders = string.Join(Environment.NewLine, _folders);
-
-        var trayText = $"PushMonitor{Environment.NewLine}" +
-            $"Update interval : {_updateIntervalSeconds} seconds{Environment.NewLine}" +
-            $"Scan folders:{Environment.NewLine}" +
-            folders;
-
-        const int trayTextMaxLength = 120;
-
-        trayText = trayText.Length > trayTextMaxLength
-            ? trayText.Substring(0, trayTextMaxLength - 3) + "..."
-            : trayText;
-
-        _trayIcon.Text = trayText;
-
-        UpdateMenu(new List<RepoStatus>());
-
-        Task.Factory.StartNew(RefreshLoop);
-        Refresh();
-
-        return true;
-    }
-
-    private void Refresh()
-    {
-        _refreshPending = true;
-    }
-
-    private bool _refreshPending = true;
-    private int _updateIntervalSeconds = 5;
-
-    private void RefreshLoop()
-    {
-        while (true)
-        {
-            Thread.Sleep(1000);
-
-            if (_refreshPending == false && (DateTime.Now - _lastRefresh).TotalSeconds < _updateIntervalSeconds)
-                continue;
-
-            _lastRefresh = DateTime.Now;
-            _refreshPending = false;
-
-            List<RepoStatus> repos = new List<RepoStatus>();
-
-            foreach (var folder in _folders)
+            catch (Exception e)
             {
-                if (Directory.Exists(folder) == false)
-                    continue;
+                MessageBox.Show(e.ToString(), "Error reading the settings file.", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
-                try
-                {
-                    var subrepos = PushMonitor.CheckReposStatus(folder);
-                    repos.AddRange(subrepos);
-                }
-                catch (Exception e)
-                {
-                    Debug.WriteLine(e);
-                    continue;
-                }
+                LocateConfig();
+                return false;
             }
 
-            GitRepoStatus status = GitRepoStatus.Pushed;
-            status = repos.Any(r => r.Status == GitRepoStatus.Unpushed) ? GitRepoStatus.Unpushed :
-                     repos.Any(r => r.Status == GitRepoStatus.Uncommitted) ? GitRepoStatus.Uncommitted :
-                     GitRepoStatus.Pushed;
-            UpdateIcon(status);
-            UpdateMenu(repos);
+            _folders = settings.Folders;
+            _updateIntervalSeconds = settings.UpdatePeriodSeconds;
+
+            var folders = string.Join(Environment.NewLine, _folders);
+
+            var trayText = $"PushMonitor{Environment.NewLine}" +
+                           $"Update interval : {_updateIntervalSeconds} seconds{Environment.NewLine}" +
+                           $"Scan folders:{Environment.NewLine}" +
+                           folders;
+
+            const int trayTextMaxLength = 120;
+
+            trayText = trayText.Length > trayTextMaxLength
+                ? trayText.Substring(0, trayTextMaxLength - 3) + "..."
+                : trayText;
+
+            _trayIcon.Text = trayText;
+
+            UpdateMenu(new List<RepoStatus>());
+
+            Task.Factory.StartNew(RefreshLoop);
+            Refresh();
+
+            return true;
         }
-    }
 
-    private Icon _errorIcon = new Icon("icons\\error.ico");
-    private Icon _warningIcon = new Icon("icons\\warning.ico");
-    private Icon _normalIcon = new Icon("icons\\normal.ico");
-    private Icon _scanIcon = new Icon("icons\\scan.ico");
-
-    private void UpdateIcon(GitRepoStatus status)
-    {
-        switch (status)
+        private void Refresh()
         {
-            case GitRepoStatus.Uncommitted:
-                _trayIcon.Icon = _warningIcon;
-                break;
-
-            case GitRepoStatus.Undefined:
-            case GitRepoStatus.Unpushed:
-                _trayIcon.Icon = _errorIcon;
-                break;
-
-            case GitRepoStatus.Pushed:
-                _trayIcon.Icon = _normalIcon;
-                break;
-
-            default:
-                break;
+            _refreshPending = true;
         }
-    }
 
-    private void UpdateMenu(List<RepoStatus> repos)
-    {
-        var menu = new ContextMenuStrip();
+        private bool _refreshPending = true;
+        private int _updateIntervalSeconds = 5;
 
-        var insertDelimiter = false;
-        if (repos.Count > 0)
+        private void RefreshLoop()
         {
-            foreach (var repo in repos)
+            while (true)
             {
-                if (repo.Status == GitRepoStatus.Pushed || repo.Status == GitRepoStatus.Undefined)
+                Thread.Sleep(1000);
+
+                if (_refreshPending == false && (DateTime.Now - _lastRefresh).TotalSeconds < _updateIntervalSeconds)
                     continue;
 
-                insertDelimiter = true;
+                _lastRefresh = DateTime.Now;
+                _refreshPending = false;
 
-                var item = new ToolStripMenuItem($"{repo.Path} [{repo.Status}]");
+                List<RepoStatus> repos = new List<RepoStatus>();
 
-                item.Click += (_, __) => HandleRepoClick(repo);
-                menu.Items.Add(item);
+                foreach (var folder in _folders)
+                {
+                    if (Directory.Exists(folder) == false)
+                        continue;
+
+                    try
+                    {
+                        var subrepos = PushMonitor.CheckReposStatus(folder);
+                        repos.AddRange(subrepos);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.WriteLine(e);
+                        continue;
+                    }
+                }
+
+                GitRepoStatus status = GitRepoStatus.Pushed;
+                status = repos.Any(r => r.Status == GitRepoStatus.Unpushed) ? GitRepoStatus.Unpushed :
+                    repos.Any(r => r.Status == GitRepoStatus.Uncommitted) ? GitRepoStatus.Uncommitted :
+                    GitRepoStatus.Pushed;
+                UpdateIcon(status);
+                UpdateMenu(repos);
             }
         }
-        if (insertDelimiter)
-            menu.Items.Add(new ToolStripSeparator());
 
-        menu.Items.Add("Application config", null, (_, __) => LocateConfig());
-        menu.Items.Add("Refresh", null, (_, __) => Refresh());
-        menu.Items.Add("Exit", null, (_, __) => Exit());
+        private readonly Icon _errorIcon = new Icon("icons\\error.ico");
+        private readonly Icon _warningIcon = new Icon("icons\\warning.ico");
+        private readonly Icon _normalIcon = new Icon("icons\\normal.ico");
+        private readonly Icon _scanIcon = new Icon("icons\\scan.ico");
 
-        _trayIcon.ContextMenuStrip = menu;
-    }
-
-    private void HandleRepoClick(RepoStatus repo)
-    {
-        switch (repo.Status)
+        private void UpdateIcon(GitRepoStatus status)
         {
-            case GitRepoStatus.Unpushed:
-                RunTortoiseGitPush(repo.Path);
-                break;
+            switch (status)
+            {
+                case GitRepoStatus.Uncommitted:
+                    _trayIcon.Icon = _warningIcon;
+                    break;
 
-            case GitRepoStatus.Uncommitted:
-                RunTortoiseGitCommit(repo.Path);
-                break;
+                case GitRepoStatus.Undefined:
+                case GitRepoStatus.Unpushed:
+                    _trayIcon.Icon = _errorIcon;
+                    break;
 
-            case GitRepoStatus.Pushed:
-                // nothing to do
-                break;
+                case GitRepoStatus.Pushed:
+                    _trayIcon.Icon = _normalIcon;
+                    break;
+
+                default:
+                    break;
+            }
         }
-    }
 
-    private void RunTortoiseGitPush(string path)
-    {
-        var psi = new ProcessStartInfo
+        private void UpdateMenu(List<RepoStatus> repos)
         {
-            FileName = "TortoiseGitProc.exe",
-            Arguments = $"/command:sync /path:\"{path}\"",
-            UseShellExecute = true
-        };
+            var menu = new ContextMenuStrip();
 
-        Process.Start(psi);
-    }
+            var insertDelimiter = false;
+            if (repos.Count > 0)
+            {
+                foreach (var repo in repos)
+                {
+                    if (repo.Status == GitRepoStatus.Pushed || repo.Status == GitRepoStatus.Undefined)
+                        continue;
 
-    private void RunTortoiseGitCommit(string path)
-    {
-        var psi = new ProcessStartInfo
+                    insertDelimiter = true;
+
+                    var item = new ToolStripMenuItem($"{repo.Path} [{repo.Status}]");
+
+                    item.Click += (_, __) => HandleRepoClick(repo);
+                    menu.Items.Add(item);
+                }
+            }
+            if (insertDelimiter)
+                menu.Items.Add(new ToolStripSeparator());
+
+            menu.Items.Add("Application config", null, (_, __) => LocateConfig());
+            menu.Items.Add("Refresh", null, (_, __) => Refresh());
+            menu.Items.Add("Exit", null, (_, __) => Exit());
+
+            _trayIcon.ContextMenuStrip = menu;
+        }
+
+        private void HandleRepoClick(RepoStatus repo)
         {
-            FileName = "TortoiseGitProc.exe",
-            Arguments = $"/command:commit /path:\"{path}\"",
-            UseShellExecute = true
-        };
+            switch (repo.Status)
+            {
+                case GitRepoStatus.Unpushed:
+                    RunTortoiseGitPush(repo.Path);
+                    break;
 
-        Process.Start(psi);
-    }
+                case GitRepoStatus.Uncommitted:
+                    RunTortoiseGitCommit(repo.Path);
+                    break;
 
-    private void Exit()
-    {
-        _trayIcon.Visible = false;
-        Application.Exit();
+                case GitRepoStatus.Pushed:
+                    // nothing to do
+                    break;
+            }
+        }
+
+        private void RunTortoiseGitPush(string path)
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "TortoiseGitProc.exe",
+                Arguments = $"/command:sync /path:\"{path}\"",
+                UseShellExecute = true
+            };
+
+            Process.Start(psi);
+        }
+
+        private void RunTortoiseGitCommit(string path)
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "TortoiseGitProc.exe",
+                Arguments = $"/command:commit /path:\"{path}\"",
+                UseShellExecute = true
+            };
+
+            Process.Start(psi);
+        }
+
+        private void Exit()
+        {
+            _trayIcon.Visible = false;
+            Application.Exit();
+        }
     }
 }

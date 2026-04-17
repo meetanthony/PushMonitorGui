@@ -1,13 +1,16 @@
 ﻿using System;
 using Application = System.Windows.Forms.Application;
 
-internal static class Program
+namespace PushMonitorGui
 {
-    [STAThread]
-    private static void Main()
+    internal static class Program
     {
-        var app = new TrayApp();
-        if (app.Init())
-            Application.Run(app);
+        [STAThread]
+        private static void Main()
+        {
+            var app = new TrayApp();
+            if (app.Init())
+                Application.Run(app);
+        }
     }
 }
