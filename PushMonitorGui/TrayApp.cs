@@ -47,7 +47,12 @@ namespace PushMonitorGui
             {
                 if (File.Exists(SettingsFileName) == false)
                 {
-                    var defaultSettingsJson = JsonSerializer.Serialize(new Settings());
+                    var defaultSettingsJson = JsonSerializer.Serialize(
+                        new Settings(),
+                        new JsonSerializerOptions
+                        {
+                            WriteIndented = true
+                        });
                     try
                     {
                         File.WriteAllLines(SettingsFileName, new[] { defaultSettingsJson });
